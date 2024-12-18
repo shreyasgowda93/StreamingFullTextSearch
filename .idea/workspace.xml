@@ -4,9 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="36e4c51f-9887-4b3c-9a02-c1f28fb14cea" name="Changes" comment="Initial Commit.">
+    <list default="true" id="36e4c51f-9887-4b3c-9a02-c1f28fb14cea" name="Changes" comment="aLL FUNCTIONS uPDATED">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/task/implementation/TaskImplementation.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/task/implementation/TaskImplementation.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -21,6 +20,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="PREVIOUS_COMMIT_AUTHORS">
+      <list>
+        <option value="arkadeepberlin &lt;arkadeep.dutta.iitkgp@gmail.com&gt;" />
+      </list>
+    </option>
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
         <entry key="$PROJECT_DIR$" value="master" />
@@ -98,7 +102,7 @@
       <workItem from="1734282725152" duration="14986000" />
       <workItem from="1734435961924" duration="1512000" />
       <workItem from="1734437587080" duration="13000" />
-      <workItem from="1734550765591" duration="629000" />
+      <workItem from="1734550765591" duration="1158000" />
     </task>
     <task id="LOCAL-00001" summary="Initial Commit.">
       <option name="closed" value="true" />
@@ -132,7 +136,47 @@
       <option name="project" value="LOCAL" />
       <updated>1734437329269</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="aLL FUNCTIONS uPDATED">
+      <option name="closed" value="true" />
+      <created>1734551569777</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1734551569777</updated>
+    </task>
+    <task id="LOCAL-00006" summary="aLL FUNCTIONS uPDATED">
+      <option name="closed" value="true" />
+      <created>1734551612285</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1734551612285</updated>
+    </task>
+    <task id="LOCAL-00007" summary="aLL FUNCTIONS uPDATED">
+      <option name="closed" value="true" />
+      <created>1734551712124</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1734551712124</updated>
+    </task>
+    <task id="LOCAL-00008" summary="aLL FUNCTIONS uPDATED">
+      <option name="closed" value="true" />
+      <created>1734551801030</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1734551801030</updated>
+    </task>
+    <task id="LOCAL-00009" summary="aLL FUNCTIONS uPDATED">
+      <option name="closed" value="true" />
+      <created>1734551819537</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1734551819537</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -151,7 +195,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Initial Commit." />
-    <option name="LAST_COMMIT_MESSAGE" value="Initial Commit." />
+    <MESSAGE value="aLL FUNCTIONS uPDATED" />
+    <option name="LAST_COMMIT_MESSAGE" value="aLL FUNCTIONS uPDATED" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
