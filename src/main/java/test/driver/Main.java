@@ -1,13 +1,11 @@
 package test.driver;
 
-import java.io.IOException;
-
 public class Main {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args)  {
         // Create an instance of TestDriver and run tests
-        TestDriver testDriver = new TestDriver();
-        testDriver.readFile(); // Read the data file
-        testDriver.runTests(); // Run the core functions
+        String testFile = (args.length > 0) ? args[0] : "src/main/resources/small_test.txt";
+        TestDriver driver = new TestDriver();
+        driver.runTest(testFile);
     }
 }
