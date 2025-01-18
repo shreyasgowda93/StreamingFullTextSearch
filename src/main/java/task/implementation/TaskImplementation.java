@@ -3,6 +3,7 @@ package task.implementation;
 import java.util.*;
 import task.definitions.*;
 
+
 public class TaskImplementation implements TaskInterface {
 
     private final List<Query> activeQueries = new ArrayList<>();
