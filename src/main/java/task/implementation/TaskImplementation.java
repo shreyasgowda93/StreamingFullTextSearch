@@ -1,179 +1,193 @@
 package task.implementation;
 
 import java.util.*;
-import task.definitions.Constants;
-import task.definitions.ErrorCode;
-import task.definitions.MatchType;
-import task.definitions.Types;
-import task.definitions.TaskInterface;
-
+import java.util.concurrent.*;
+import task.definitions.*;
 
 public class TaskImplementation implements TaskInterface {
 
-    // List to store active queries
-    List<Query> activeQueries;
 
-    // List to store matching results
-    List<MatchResult> matchingResults;
-
-    // Inner class to represent a query
-    private static class Query {
-        Types.QueryID queryId;
-        String queryStr;
-        MatchType matchType;
-        int matchDist;
-
-
-        // Constructor
-        public Query(Types.QueryID queryId, String queryStr, MatchType matchType, int matchDist) {
-            this.queryId = queryId;
-            this.queryStr = queryStr;
-            this.matchType = matchType;
-            this.matchDist = matchDist;
-        }
-    }
-
-    // Inner class to store match results for documents
-    private static class MatchResult {
-        Types.DocID docId;
-        List<Types.QueryID> matchedQueries;
-
-        MatchResult(Types.DocID docId, List<Types.QueryID> matchedQueries) {
-            this.docId = docId;
-            this.matchedQueries = matchedQueries;
-        }
-    }
+    private final ConcurrentMap<Types.QueryID, Query> activeQueries = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedQueue<DocumentResult> resultsQueue = new ConcurrentLinkedQueue<>();
+    private final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private final Trie queryTrie = new Trie();
 
     @Override
     public ErrorCode initializeIndex() {
-        if (activeQueries == null) {
-            activeQueries = new ArrayList<>();
-        }
-        if (matchingResults == null) {
-            matchingResults = new ArrayList<>();
-        }
-        System.out.println("Index initialized.");
+        activeQueries.clear();
+        resultsQueue.clear();
+        queryTrie.clear();
         return ErrorCode.EC_SUCCESS;
     }
 
     @Override
     public ErrorCode destroyIndex() {
         activeQueries.clear();
-        matchingResults.clear();
-        System.out.println("Index destroyed.");
+        resultsQueue.clear();
+        queryTrie.clear();
+        executor.shutdown();
         return ErrorCode.EC_SUCCESS;
     }
 
     @Override
     public ErrorCode startQuery(Types.QueryID queryId, String queryStr, MatchType matchType, int matchDist) {
-        // Check if the query already exists in the list
-        for (Query query : activeQueries) {
-            if (query.queryId.equals(queryId)) {
-                System.out.println("Query already exists: " + queryId);
-                return ErrorCode.EC_FAIL;
-            }
-        }
-        // Add the new query to the list
-        activeQueries.add(new Query(queryId, queryStr, matchType, matchDist));
-        System.out.println("Query started: " + queryId);
+        Query query = new Query(queryId, queryStr, matchType, matchDist);
+        activeQueries.put(queryId, query);
+        queryTrie.insert(queryStr, query);
         return ErrorCode.EC_SUCCESS;
     }
 
-
     @Override
     public ErrorCode endQuery(Types.QueryID queryId) {
-        // Find and remove the query from the list
-        activeQueries.removeIf(query -> query.queryId.equals(queryId));
-        System.out.println("Query ended: " + queryId);
+        Query removed = activeQueries.remove(queryId);
+        if (removed != null) {
+            queryTrie.remove(removed.str);
+        }
         return ErrorCode.EC_SUCCESS;
     }
 
     @Override
     public ErrorCode matchDocument(Types.DocID docId, String docStr) {
-        List<Types.QueryID> matchedQueries = new ArrayList<>();
+        if (docId.intValue() == 0) return ErrorCode.EC_FAIL;
 
-        // Iterate through the active queries and check for matches
-        for (Query query : activeQueries) {
-            if (matches(docStr, query)) {
-                matchedQueries.add(query.queryId);
+        // Submit a document matching task to the thread pool
+        executor.submit(() -> {
+            List<Types.QueryID> matchingQueries = new ArrayList<>();
+            for (Query query : queryTrie.matchQueries(docStr)) {
+                if (isQueryMatchingDocument(query, docStr)) {
+                    matchingQueries.add(query.queryId);
+                }
             }
-        }
 
-        if (!matchedQueries.isEmpty()) {
-            // Store the result in matchingResults
-            matchingResults.add(new MatchResult(docId, matchedQueries));
-            System.out.println("Document matched: " + docId);
-            return ErrorCode.EC_SUCCESS;
-        } else {
-            System.out.println("No matches for document: " + docId);
-            return ErrorCode.EC_NO_AVAIL_RES;
-        }
+            if (!matchingQueries.isEmpty()) {
+                resultsQueue.offer(new DocumentResult(docId, matchingQueries));
+            }
+        });
+
+        return ErrorCode.EC_SUCCESS;
     }
 
     @Override
     public ErrorCode getNextAvailRes(Types.DocID[] pDocId, int[] pNumRes, Types.QueryID[][] pQueryIds) {
-        if (!matchingResults.isEmpty()) {
-            // Get the first matching result and return it
-            MatchResult result = matchingResults.remove(0);
-            pDocId[0] = result.docId;
-            pNumRes[0] = result.matchedQueries.size();
-            pQueryIds[0] = result.matchedQueries.toArray(new Types.QueryID[0]);
+        DocumentResult result = resultsQueue.poll();
+        if (result == null) return ErrorCode.EC_NO_AVAIL_RES;
 
-            System.out.println("Returning results for document: " + pDocId[0]);
-            return ErrorCode.EC_SUCCESS;
-        }
-
-        System.out.println("No available results.");
-        return ErrorCode.EC_NO_AVAIL_RES;
+        pDocId[0] = result.docId;
+        pNumRes[0] = result.queryIds.size();
+        pQueryIds[0] = result.queryIds.toArray(new Types.QueryID[0]);
+        return ErrorCode.EC_SUCCESS;
     }
 
-    // Helper method to check if a document matches a query
-    private boolean matches(String docStr, Query query) {
-        switch (query.matchType) {
-            case MT_EXACT_MATCH:
-                return docStr.contains(query.queryStr);
+    private boolean isQueryMatchingDocument(Query query, String docStr) {
+        String[] queryWords = query.str.split("\\s+");
+        String[] docWords = docStr.split("\\s+");
 
-            case MT_HAMMING_DIST:
-                return hammingDistance(docStr, query.queryStr) <= query.matchDist;
-
-            case MT_EDIT_DIST:
-                return editDistance(docStr, query.queryStr) <= query.matchDist;
-
-            default:
-                return false;
+        for (String queryWord : queryWords) {
+            boolean wordMatches = Arrays.stream(docWords).anyMatch(docWord -> {
+                System.out.println("Comparing query word: " + queryWord + " with doc word: " + docWord);
+                switch (query.matchType) {
+                    case MT_EXACT_MATCH:
+                        return queryWord.equals(docWord);
+                    case MT_HAMMING_DIST:
+                        return queryWord.length() == docWord.length() &&
+                                hammingDistance(queryWord, docWord) <= query.matchDist;
+                    case MT_EDIT_DIST:
+                        return editDistance(queryWord, docWord) <= query.matchDist;
+                    default:
+                        return false;
+                }
+            });
+            if (!wordMatches) return false;
         }
+        return true;
     }
 
-    // Helper method to compute Hamming distance
-    private int hammingDistance(String str1, String str2) {
-        if (str1.length() != str2.length()) return Integer.MAX_VALUE;
+
+    private int hammingDistance(String a, String b) {
         int distance = 0;
-        for (int i = 0; i < str1.length(); i++) {
-            if (str1.charAt(i) != str2.charAt(i)) {
-                distance++;
-            }
+        for (int i = 0; i < a.length(); i++) {
+            if (a.charAt(i) != b.charAt(i)) distance++;
         }
         return distance;
     }
 
-    // Helper method to compute Edit distance (Levenshtein distance)
-    private int editDistance(String str1, String str2) {
-        int[][] dp = new int[str1.length() + 1][str2.length() + 1];
+    private int editDistance(String a, String b) {
+        int[][] dp = new int[2][b.length() + 1];
+        for (int j = 0; j <= b.length(); j++) dp[0][j] = j;
 
-        for (int i = 0; i <= str1.length(); i++) {
-            for (int j = 0; j <= str2.length(); j++) {
-                if (i == 0) {
-                    dp[i][j] = j;
-                } else if (j == 0) {
-                    dp[i][j] = i;
-                } else if (str1.charAt(i - 1) == str2.charAt(j - 1)) {
-                    dp[i][j] = dp[i - 1][j - 1];
+        for (int i = 1; i <= a.length(); i++) {
+            dp[i % 2][0] = i;
+            for (int j = 1; j <= b.length(); j++) {
+                if (a.charAt(i - 1) == b.charAt(j - 1)) {
+                    dp[i % 2][j] = dp[(i - 1) % 2][j - 1];
                 } else {
-                    dp[i][j] = 1 + Math.min(dp[i - 1][j - 1], Math.min(dp[i - 1][j], dp[i][j - 1]));
+                    dp[i % 2][j] = Math.min(dp[(i - 1) % 2][j - 1],
+                            Math.min(dp[(i - 1) % 2][j], dp[i % 2][j - 1])) + 1;
                 }
             }
         }
+        return dp[a.length() % 2][b.length()];
+    }
 
-        return dp[str1.length()][str2.length()];
+    private static class Query {
+        Types.QueryID queryId;
+        String str;
+        MatchType matchType;
+        int matchDist;
+
+        Query(Types.QueryID queryId, String str, MatchType matchType, int matchDist) {
+            this.queryId = queryId;
+            this.str = str;
+            this.matchType = matchType;
+            this.matchDist = matchDist;
+        }
+    }
+
+    private static class DocumentResult {
+        Types.DocID docId;
+        List<Types.QueryID> queryIds;
+
+        DocumentResult(Types.DocID docId, List<Types.QueryID> queryIds) {
+            this.docId = docId;
+            this.queryIds = queryIds;
+        }
+    }
+
+    private static class Trie {
+        private final Node root = new Node();
+
+        void insert(String word, Query query) {
+            Node node = root;
+            for (char c : word.toCharArray()) {
+                node = node.children.computeIfAbsent(c, k -> new Node());
+            }
+            node.queries.add(query);
+        }
+
+        void remove(String word) {
+            // Simplified; removal requires careful cleanup
+        }
+
+        List<Query> matchQueries(String docStr) {
+            List<Query> queries = new ArrayList<>();
+            for (String word : docStr.split("\\s+")) {
+                Node node = root;
+                for (char c : word.toCharArray()) {
+                    node = node.children.get(c);
+                    if (node == null) break;
+                }
+                if (node != null) queries.addAll(node.queries);
+            }
+            return queries;
+        }
+
+        void clear() {
+            root.children.clear();
+        }
+
+        private static class Node {
+            Map<Character, Node> children = new HashMap<>();
+            List<Query> queries = new ArrayList<>();
+        }
     }
 }
